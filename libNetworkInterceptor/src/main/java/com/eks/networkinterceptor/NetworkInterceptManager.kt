@@ -1,30 +1,45 @@
 package com.eks.networkinterceptor
 
+import android.annotation.TargetApi
 import android.app.Application
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
+import android.os.Handler
+import android.os.Handler.Callback
+import android.os.Message
 import com.eks.networkinterceptor.annotation.NetworkChange
 import com.eks.networkinterceptor.bean.MethodBean
 import com.eks.networkinterceptor.callback.NetworkInterceptCallback
 import com.eks.networkinterceptor.type.NetworkType
+import io.reactivex.Observable
+import io.reactivex.Observer
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.Disposable
+import io.reactivex.schedulers.Schedulers
 
 /**
  * Created by Riggs on 2019/3/4
  */
 object NetworkInterceptManager {
 
-    private var mApplication: Application? = null
+    private lateinit var mApplication: Application
+    private lateinit var cmgr: ConnectivityManager
     private var mMethodsMap: HashMap<Any, List<MethodBean>> = hashMapOf()
+    private var mNIHandler = NIHandler()
+
+    private var HANDLER_MSG_SWITCH_TO_MAIN_THREAD = 1
 
     fun init(application: Application) {
         mApplication = application
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {// 5.0及之后可以通过ConnectivityManager进行网络的监听
             val builder = NetworkRequest.Builder()
             val request = builder.build()
-            val cmgr = mApplication?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-            cmgr?.registerNetworkCallback(request, MConnectivityManager(mNetworkInterceptCallback))
+            cmgr =
+                mApplication.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            cmgr.registerNetworkCallback(request, MConnectivityManager(mNetworkInterceptCallback))
             // if (cmgr != null) cmgr.unregisterNetworkCallback(networkCallback);
         } else {//5.0之前最好就是使用广播,而且动态广播为妙
         }
@@ -39,7 +54,7 @@ object NetworkInterceptManager {
         mMethodsMap.remove(obj)
     }
 
-    fun unbindAll(){
+    fun unbindAll() {
         mMethodsMap.clear()
     }
 
@@ -73,18 +88,94 @@ object NetworkInterceptManager {
         return methodBeanLists
     }
 
-    private var mNetworkInterceptCallback: NetworkInterceptCallback = object : NetworkInterceptCallback {
-        override fun onNetworkStatusChanged(type: NetworkType) {
+    private var mNetworkInterceptCallback: NetworkInterceptCallback =
+        object : NetworkInterceptCallback {
+            override fun onNetworkStatusChanged(type: NetworkType) {
+                //由于在这里操作的线程是属于ConnectivityThread而非主线程,因此需要统一切换下
+                val message = Message.obtain()
+                message.what = HANDLER_MSG_SWITCH_TO_MAIN_THREAD
+                message.obj = type
+                mNIHandler.sendMessage(message)
+            }
+        }
+
+    internal class NIHandler : Handler(Callback {
+        if (it.what == HANDLER_MSG_SWITCH_TO_MAIN_THREAD) {
             //遍历所有已绑定的类及对应的函数集合
             mMethodsMap.keys.forEach { obj ->
                 val methodList = mMethodsMap[obj]
                 //遍历函数集合
                 methodList?.forEach { methodBean ->
                     //反射执行函数
-                    methodBean.method.invoke(obj, type)
+                    methodBean.method.invoke(obj, it.obj)
                 }
             }
         }
+        true
+    })
+
+
+    /**
+     * 获取当前网络状况
+     */
+    @TargetApi(Build.VERSION_CODES.M)
+    fun getCurrentNetworkStatus(mCallback: INetworkStatusCallback) {
+        Observable.create<NetworkType> { e ->
+            val type: NetworkType
+            if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)) {//6.0后用activeNetwork获取
+                val networkCapabilities = cmgr.getNetworkCapabilities(cmgr.activeNetwork)
+                if (networkCapabilities == null) {
+                    type = NetworkType.NONE
+                } else {
+                    when {
+                        networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
+                            type = NetworkType.WIFI
+                        }
+                        networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
+                            type = NetworkType.CELLULAR
+                        }
+                        else -> {
+                            type = NetworkType.NONE
+                        }
+                    }
+                }
+            } else {//低于6.0用activeNetworkInfo
+                val activeNetworkInfo = cmgr.activeNetworkInfo
+                if (activeNetworkInfo == null || !activeNetworkInfo.isAvailable || !activeNetworkInfo.isConnected) {
+                    type = NetworkType.NONE
+                } else {
+                    when (activeNetworkInfo.type) {
+                        -1 -> type = NetworkType.NONE
+                        ConnectivityManager.TYPE_MOBILE -> type = NetworkType.CELLULAR
+                        ConnectivityManager.TYPE_WIFI -> type = NetworkType.WIFI
+                        else -> type = NetworkType.OTHER
+                    }
+                }
+            }
+            e.onNext(type)
+        }.subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(object : Observer<NetworkType>{
+                override fun onComplete() {
+                }
+
+                override fun onSubscribe(d: Disposable) {
+                }
+
+                override fun onNext(t: NetworkType) {
+                    mCallback.currentStatus(t)
+                }
+
+                override fun onError(e: Throwable) {
+                }
+            })
+//            .subscribe {
+//                mCallback.currentStatus(it)
+//            }
+    }
+
+    interface INetworkStatusCallback {
+        fun currentStatus(networkType: NetworkType)
     }
 
 }

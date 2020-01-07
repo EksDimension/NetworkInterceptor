@@ -27,15 +27,27 @@ class MConnectivityManager(private val mNetworkInterceptCallback: NetworkInterce
     /**
      * 连接线路更变
      */
-    override fun onCapabilitiesChanged(network: Network?, networkCapabilities: NetworkCapabilities?) {
+    override fun onCapabilitiesChanged(
+        network: Network?,
+        networkCapabilities: NetworkCapabilities?
+    ) {
         super.onCapabilitiesChanged(network, networkCapabilities)
         networkCapabilities?.let {
             if (it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
                 //如果连接上了wifi
                 currentStatusMap[network] = NetworkType.WIFI
                 currentStatus = NetworkType.WIFI
+            } else if (it.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                //如果连接上了移动数据
+                currentStatusMap[network] = NetworkType.CELLULAR
+                currentStatus = NetworkType.CELLULAR
+                //遍历下连接map,如果有wifi则以wifi优先
+                currentStatusMap.keys.forEach { key ->
+                    if (currentStatusMap[key] == NetworkType.WIFI)
+                        currentStatus = NetworkType.WIFI
+                }
             } else {
-                //如果连接上了非wifi
+                //否则就是其他连接情况
                 currentStatusMap[network] = NetworkType.OTHER
                 currentStatus = NetworkType.OTHER
                 //遍历下连接map,如果有wifi则以wifi优先
@@ -61,6 +73,8 @@ class MConnectivityManager(private val mNetworkInterceptCallback: NetworkInterce
                 currentStatus = when (currentStatusMap[it]) {
                     NetworkType.WIFI ->
                         NetworkType.WIFI
+                    NetworkType.CELLULAR ->
+                        NetworkType.CELLULAR
                     else ->
                         NetworkType.OTHER
                 }

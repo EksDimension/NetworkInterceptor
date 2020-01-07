@@ -7,14 +7,15 @@ import com.eks.networkinterceptor.NetworkInterceptManager
 /**
  * Created by Riggs on 2019/3/5
  */
-abstract class BaseActivity: AppCompatActivity() {
+abstract class BaseActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         NetworkInterceptManager.bind(this)
     }
 
-    fun abc(){
-
+    override fun onDestroy() {
+        super.onDestroy()
+        NetworkInterceptManager.unbind(this)
     }
 }

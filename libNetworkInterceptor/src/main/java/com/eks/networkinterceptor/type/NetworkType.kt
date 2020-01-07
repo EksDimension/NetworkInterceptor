@@ -10,6 +10,10 @@ enum class NetworkType {
      */
     WIFI,
     /**
+     * 移动数据
+     */
+    CELLULAR,
+    /**
      * 非WIFI(移动数据)
      */
     OTHER,
