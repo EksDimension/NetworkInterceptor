@@ -1,5 +1,6 @@
 package com.eks.networkinterceptor
 
+import android.annotation.SuppressLint
 import android.annotation.TargetApi
 import android.app.Application
 import android.content.Context
@@ -15,9 +16,7 @@ import com.eks.networkinterceptor.bean.MethodBean
 import com.eks.networkinterceptor.callback.NetworkInterceptCallback
 import com.eks.networkinterceptor.type.NetworkType
 import io.reactivex.Observable
-import io.reactivex.Observer
 import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
 
 /**
@@ -29,6 +28,7 @@ object NetworkInterceptManager {
     private lateinit var cmgr: ConnectivityManager
     private var mMethodsMap: HashMap<Any, List<MethodBean>> = hashMapOf()
     private var mNIHandler = NIHandler()
+    var currentStatus : NetworkType = NetworkType.NONE
 
     private var HANDLER_MSG_SWITCH_TO_MAIN_THREAD = 1
 
@@ -48,6 +48,7 @@ object NetworkInterceptManager {
     fun bind(obj: Any) {
         val foundMethods = findAnnotationMethods(obj)
         mMethodsMap[obj] = foundMethods
+        checkImmed()
     }
 
     fun unbind(obj: Any) {
@@ -91,6 +92,7 @@ object NetworkInterceptManager {
     private var mNetworkInterceptCallback: NetworkInterceptCallback =
         object : NetworkInterceptCallback {
             override fun onNetworkStatusChanged(type: NetworkType) {
+                currentStatus = type
                 //由于在这里操作的线程是属于ConnectivityThread而非主线程,因此需要统一切换下
                 val message = Message.obtain()
                 message.what = HANDLER_MSG_SWITCH_TO_MAIN_THREAD
@@ -116,66 +118,47 @@ object NetworkInterceptManager {
 
 
     /**
-     * 获取当前网络状况
+     * 立即获取网络状态
      */
+    @SuppressLint("CheckResult")
     @TargetApi(Build.VERSION_CODES.M)
-    fun getCurrentNetworkStatus(mCallback: INetworkStatusCallback) {
+    private fun checkImmed() {
         Observable.create<NetworkType> { e ->
             val type: NetworkType
             if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)) {//6.0后用activeNetwork获取
                 val networkCapabilities = cmgr.getNetworkCapabilities(cmgr.activeNetwork)
-                if (networkCapabilities == null) {
-                    type = NetworkType.NONE
+                type = if (networkCapabilities == null) {
+                    NetworkType.NONE
                 } else {
                     when {
                         networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
-                            type = NetworkType.WIFI
+                            NetworkType.WIFI
                         }
                         networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
-                            type = NetworkType.CELLULAR
+                            NetworkType.CELLULAR
                         }
                         else -> {
-                            type = NetworkType.NONE
+                            NetworkType.NONE
                         }
                     }
                 }
             } else {//低于6.0用activeNetworkInfo
                 val activeNetworkInfo = cmgr.activeNetworkInfo
-                if (activeNetworkInfo == null || !activeNetworkInfo.isAvailable || !activeNetworkInfo.isConnected) {
-                    type = NetworkType.NONE
-                } else {
-                    when (activeNetworkInfo.type) {
-                        -1 -> type = NetworkType.NONE
-                        ConnectivityManager.TYPE_MOBILE -> type = NetworkType.CELLULAR
-                        ConnectivityManager.TYPE_WIFI -> type = NetworkType.WIFI
-                        else -> type = NetworkType.OTHER
+                type =
+                    if (activeNetworkInfo == null || !activeNetworkInfo.isAvailable || !activeNetworkInfo.isConnected) {
+                        NetworkType.NONE
+                    } else {
+                        when (activeNetworkInfo.type) {
+                            -1 -> NetworkType.NONE
+                            ConnectivityManager.TYPE_MOBILE -> NetworkType.CELLULAR
+                            ConnectivityManager.TYPE_WIFI -> NetworkType.WIFI
+                            else -> NetworkType.OTHER
+                        }
                     }
-                }
             }
             e.onNext(type)
         }.subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(object : Observer<NetworkType>{
-                override fun onComplete() {
-                }
-
-                override fun onSubscribe(d: Disposable) {
-                }
-
-                override fun onNext(t: NetworkType) {
-                    mCallback.currentStatus(t)
-                }
-
-                override fun onError(e: Throwable) {
-                }
-            })
-//            .subscribe {
-//                mCallback.currentStatus(it)
-//            }
+            .subscribe { mNetworkInterceptCallback.onNetworkStatusChanged(it) }
     }
-
-    interface INetworkStatusCallback {
-        fun currentStatus(networkType: NetworkType)
-    }
-
 }

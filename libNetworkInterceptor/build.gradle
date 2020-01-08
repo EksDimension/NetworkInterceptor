@@ -38,9 +38,9 @@ publish {
     userOrg = 'eksdimension'//bintray.com用户名
     groupId = 'com.eks.framework'//jcenter上的路径
     artifactId = 'network_interceptor'//项目名称
-    publishVersion = '1.0.0'//版本号
-    desc = 'A framework intercepting your network environment'//描述，不重要
-    website = 'https://github.com/EksDimension/NetworkInterceptor'//网站，不重要；尽量模拟github上的地址，例如我这样的；当然你有地址最好了
+    publishVersion = '1.0.1'//版本号
+    desc = 'A framework intercepting your network environment'//项目描述
+    website = 'https://github.com/EksDimension/NetworkInterceptor'//github项目网站
 }
 
 repositories {
