@@ -3,6 +3,8 @@ package com.eks.netlistener
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
+import com.eks.networkinterceptor.NetworkInterceptManager
 import com.eks.networkinterceptor.annotation.NetworkChange
 import com.eks.networkinterceptor.type.NetworkType
 import kotlinx.android.synthetic.main.activity_first.*
@@ -18,6 +20,12 @@ class ThirdActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_first)
         btnNavigate.visibility = View.GONE
+        btn1.setOnClickListener {
+            Toast.makeText(
+                this@ThirdActivity,
+                "当前网络状况:${NetworkInterceptManager.currentStatus.name}", Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     @NetworkChange
