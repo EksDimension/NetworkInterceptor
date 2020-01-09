@@ -28,22 +28,20 @@ object NetworkInterceptManager {
     private lateinit var cmgr: ConnectivityManager
     private var mMethodsMap: HashMap<Any, List<MethodBean>> = hashMapOf()
     private var mNIHandler = NIHandler()
-    var currentStatus : NetworkType = NetworkType.NONE
+    var currentStatus: NetworkType = NetworkType.NONE
 
     private var HANDLER_MSG_SWITCH_TO_MAIN_THREAD = 1
 
     fun init(application: Application) {
         mApplication = application
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {// 5.0及之后可以通过ConnectivityManager进行网络的监听
-            val builder = NetworkRequest.Builder()
-            val request = builder.build()
-            cmgr =
-                mApplication.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            cmgr.registerNetworkCallback(request, MConnectivityManager(mNetworkInterceptCallback))
-            // if (cmgr != null) cmgr.unregisterNetworkCallback(networkCallback);
-        } else {//5.0之前最好就是使用广播,而且动态广播为妙
-        }
+        val builder = NetworkRequest.Builder()
+        val request = builder.build()
+        cmgr =
+            mApplication.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        cmgr.registerNetworkCallback(request, MConnectivityManager(mNetworkInterceptCallback).MNetworkCallback())
+        // if (cmgr != null) cmgr.unregisterNetworkCallback(networkCallback);
     }
+
 
     fun bind(obj: Any) {
         val foundMethods = findAnnotationMethods(obj)
@@ -120,6 +118,7 @@ object NetworkInterceptManager {
     /**
      * 立即获取网络状态
      */
+    @Suppress("DEPRECATION")
     @SuppressLint("CheckResult")
     @TargetApi(Build.VERSION_CODES.M)
     private fun checkImmed() {
