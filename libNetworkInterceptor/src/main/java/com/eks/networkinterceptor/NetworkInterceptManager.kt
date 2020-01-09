@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Handler.Callback
 import android.os.Message
+import android.util.Log
 import com.eks.networkinterceptor.annotation.NetworkChange
 import com.eks.networkinterceptor.bean.MethodBean
 import com.eks.networkinterceptor.callback.NetworkInterceptCallback
@@ -38,8 +39,33 @@ object NetworkInterceptManager {
         val request = builder.build()
         cmgr =
             mApplication.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        cmgr.registerNetworkCallback(request, MConnectivityManager(mNetworkInterceptCallback).MNetworkCallback())
+        cmgr.registerNetworkCallback(request, MNetworkCallback(mNetworkInterceptCallback))
         // if (cmgr != null) cmgr.unregisterNetworkCallback(networkCallback);
+        checkNetDataAvailability()
+    }
+
+    @SuppressLint("SoonBlockedPrivateApi")
+    private fun checkNetDataAvailability() {
+        //获取mCallback属性
+        val mCallbackFiled = Handler::class.java.getDeclaredField("mCallback")
+        mCallbackFiled.isAccessible = true // 授权
+
+        //获取ConnectivityManager类class
+        val mConnectivityManagerClass = Class.forName("android.net.ConnectivityManager")
+        //获取ConnectivityManager下面的静态属性字段sCallbackHandler
+        val msCallbackHandlerField = mConnectivityManagerClass.getDeclaredField("sCallbackHandler")
+        msCallbackHandlerField.isAccessible = true
+        //把sCallbackHandler属性实例化 类型为ConnectivityManager.CallbackHandler
+        val mCallbackHandler = msCallbackHandlerField.get(cmgr) as Handler
+        mCallbackFiled.set(mCallbackHandler, MyCallback(mCallbackHandler))//替换Handler里头的Callback回调
+    }
+
+    class MyCallback(private val mCallbackHandler: Handler) : Callback {
+        override fun handleMessage(msg: Message): Boolean {
+            Log.i("233", msg.what.toString())//<<<---这里没有收到消息
+            mCallbackHandler.handleMessage(msg)
+            return true
+        }
     }
 
 
