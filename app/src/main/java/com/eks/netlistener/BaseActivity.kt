@@ -11,11 +11,21 @@ abstract class BaseActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        NetworkInterceptManager.bind(this)
+        NetworkInterceptManager.create(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        NetworkInterceptManager.resume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        NetworkInterceptManager.pause()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        NetworkInterceptManager.unbind(this)
+        NetworkInterceptManager.destroy(this)
     }
 }

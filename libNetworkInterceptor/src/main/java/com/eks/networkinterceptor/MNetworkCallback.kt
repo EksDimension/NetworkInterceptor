@@ -8,6 +8,7 @@ import com.eks.networkinterceptor.type.NetworkType
 
 
 /**
+ * 继承于NetworkCallback的自定义Callback
  * Created by Riggs on 2019/3/5
  */
 class MNetworkCallback(private val mNetworkInterceptCallback: NetworkInterceptCallback) :

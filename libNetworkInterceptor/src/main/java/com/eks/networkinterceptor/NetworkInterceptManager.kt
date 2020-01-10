@@ -15,13 +15,14 @@ import com.eks.networkinterceptor.annotation.NetworkChange
 import com.eks.networkinterceptor.bean.MethodBean
 import com.eks.networkinterceptor.bean.NetworkResponse
 import com.eks.networkinterceptor.callback.NetworkInterceptCallback
-import com.eks.networkinterceptor.type.Availability
+import com.eks.networkinterceptor.type.DataAvailability
 import com.eks.networkinterceptor.type.NetworkType
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
 
 /**
+ * 网络拦截管理器
  * Created by Riggs on 2019/3/4
  */
 object NetworkInterceptManager {
@@ -29,7 +30,8 @@ object NetworkInterceptManager {
     private lateinit var mApplication: Application
     private lateinit var cmgr: ConnectivityManager
     private var mMethodsMap: HashMap<Any, List<MethodBean>> = hashMapOf()
-    var currentStatus: NetworkType = NetworkType.WAITING
+    var currentType: NetworkType = NetworkType.WAITING
+    var currentAvailability: DataAvailability = DataAvailability.WAITING
 
     private var HANDLER_MSG_SWITCH_TO_MAIN_THREAD = 1
 
@@ -71,7 +73,7 @@ object NetworkInterceptManager {
         cmgr =
             mApplication.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         cmgr.registerNetworkCallback(request, mNetworkCallback)
-
+        mNetworkDataAvailabilityInterceptor.startCheck()
     }
 
     /**
@@ -83,10 +85,10 @@ object NetworkInterceptManager {
     }
 
     /**
-     * 绑定对象
+     * 创建-绑定对象 对应onCreate/onCreateView
      * @param obj activity或fragment对象
      */
-    fun bind(obj: Any) {
+    fun create(obj: Any) {
         installInterceptor()
         val foundMethods = findAnnotationMethods(obj)
         mMethodsMap[obj] = foundMethods
@@ -94,10 +96,24 @@ object NetworkInterceptManager {
     }
 
     /**
-     * 解绑对象
+     * 恢复-对应onResume
+     */
+    fun resume(){
+        mNetworkDataAvailabilityInterceptor.startCheck()
+    }
+
+    /**
+     * 暂停-对应onPause
+     */
+    fun pause(){
+        mNetworkDataAvailabilityInterceptor.stopCheck()
+    }
+
+    /**
+     * 销毁-解绑对象 对应onDestroyed/onDestroyedView
      * @param obj activity或fragment对象
      */
-    fun unbind(obj: Any) {
+    fun destroy(obj: Any) {
         mMethodsMap.remove(obj)
         uninstallInterceptor()
     }
@@ -144,7 +160,7 @@ object NetworkInterceptManager {
     private var mNetworkInterceptCallback: NetworkInterceptCallback =
         object : NetworkInterceptCallback {
             override fun onNetworkStatusChanged(type: NetworkType) {
-                currentStatus = type
+                currentType = type
                 //由于在这里操作的线程是属于ConnectivityThread而非主线程,因此需要统一切换下
                 val message = Message.obtain()
                 message.what = HANDLER_MSG_SWITCH_TO_MAIN_THREAD
@@ -156,7 +172,7 @@ object NetworkInterceptManager {
 
     private var mNIHandler = NIHandler()
 
-    internal class NIHandler : Handler(Callback {
+    private class NIHandler : Handler(Callback {
         if (it.what == HANDLER_MSG_SWITCH_TO_MAIN_THREAD) {
             //遍历所有已绑定的类及对应的函数集合
             mMethodsMap.keys.forEach { obj ->
@@ -164,16 +180,19 @@ object NetworkInterceptManager {
                 //遍历函数集合
                 methodList?.forEach { methodBean ->
                     //反射执行函数
-                    methodBean.method.invoke(
-                        obj,
-                        NetworkResponse(currentStatus, Availability.AVAILABLE)
-                    )
+                    methodBean.method.invoke(obj, NetworkResponse(currentType, currentAvailability))
                 }
             }
         }
         true
     })
 
+    private val mNetworkDataAvailabilityInterceptor =
+        NetworkDataAvailabilityInterceptor(object :
+            NetworkDataAvailabilityInterceptor.DataAvailabilityCallback {
+            override fun onChecked(dataAvailability: DataAvailability) {
+            }
+        })
 
     /**
      * 立即获取网络状态

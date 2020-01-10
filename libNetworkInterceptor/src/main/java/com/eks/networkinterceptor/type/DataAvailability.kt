@@ -1,15 +1,16 @@
 package com.eks.networkinterceptor.type
 
 /**
+ * 网络数据连通有效性枚举类
  * Created by Riggs on 1/10/2020
  */
-enum class Availability {
+enum class DataAvailability {
     /**
-     * 已连通(畅通)
+     * 可用,畅通
      */
     AVAILABLE,
     /**
-     * 未连通(阻塞)
+     * 不可用,阻塞
      */
     UNABAILABLE,
     /**

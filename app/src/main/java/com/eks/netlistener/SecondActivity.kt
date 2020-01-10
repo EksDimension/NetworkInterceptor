@@ -25,7 +25,7 @@ class SecondActivity : BaseActivity() {
         btn1.setOnClickListener {
             Toast.makeText(
                 this@SecondActivity,
-                "当前网络状况:${NetworkInterceptManager.currentStatus.name}", Toast.LENGTH_SHORT
+                "当前网络状况:${NetworkInterceptManager.currentType.name}", Toast.LENGTH_SHORT
             ).show()
         }
     }
