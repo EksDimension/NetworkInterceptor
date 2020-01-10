@@ -6,7 +6,7 @@ import android.os.Bundle
 import android.widget.Toast
 import com.eks.networkinterceptor.NetworkInterceptManager
 import com.eks.networkinterceptor.annotation.NetworkChange
-import com.eks.networkinterceptor.type.NetworkType
+import com.eks.networkinterceptor.bean.NetworkResponse
 import kotlinx.android.synthetic.main.activity_first.*
 
 @SuppressLint("SetTextI18n")
@@ -27,7 +27,7 @@ class FirstActivity : BaseActivity() {
     }
 
     @NetworkChange
-    fun onNetworkChanged(type: NetworkType) {
-        textView1.text = "第一页实时网络状况:${type.name}"
+    fun onNetworkChanged(res: NetworkResponse) {
+        textView1.text = "第一页实时网络状况:${res.networkType.name}"
     }
 }

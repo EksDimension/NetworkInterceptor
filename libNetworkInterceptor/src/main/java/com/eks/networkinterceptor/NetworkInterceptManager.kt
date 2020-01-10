@@ -11,10 +11,11 @@ import android.os.Build
 import android.os.Handler
 import android.os.Handler.Callback
 import android.os.Message
-import android.util.Log
 import com.eks.networkinterceptor.annotation.NetworkChange
 import com.eks.networkinterceptor.bean.MethodBean
+import com.eks.networkinterceptor.bean.NetworkResponse
 import com.eks.networkinterceptor.callback.NetworkInterceptCallback
+import com.eks.networkinterceptor.type.Availability
 import com.eks.networkinterceptor.type.NetworkType
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -28,59 +29,85 @@ object NetworkInterceptManager {
     private lateinit var mApplication: Application
     private lateinit var cmgr: ConnectivityManager
     private var mMethodsMap: HashMap<Any, List<MethodBean>> = hashMapOf()
-    private var mNIHandler = NIHandler()
-    var currentStatus: NetworkType = NetworkType.NONE
+    var currentStatus: NetworkType = NetworkType.WAITING
 
     private var HANDLER_MSG_SWITCH_TO_MAIN_THREAD = 1
 
     fun init(application: Application) {
         mApplication = application
+        // if (cmgr != null) cmgr.unregisterNetworkCallback(networkCallback);
+//        checkNetDataAvailability()
+    }
+
+//    @SuppressLint("SoonBlockedPrivateApi")
+//    private fun checkNetDataAvailability() {
+//        //获取mCallback属性
+//        val mCallbackFiled = Handler::class.java.getDeclaredField("mCallback")
+//        mCallbackFiled.isAccessible = true // 授权
+//
+//        //获取ConnectivityManager类class
+//        val mConnectivityManagerClass = Class.forName("android.net.ConnectivityManager")
+//        //获取ConnectivityManager下面的静态属性字段sCallbackHandler
+//        val msCallbackHandlerField = mConnectivityManagerClass.getDeclaredField("sCallbackHandler")
+//        msCallbackHandlerField.isAccessible = true
+//        //把sCallbackHandler属性实例化 类型为ConnectivityManager.CallbackHandler
+//        val mCallbackHandler = msCallbackHandlerField.get(cmgr) as Handler
+//        mCallbackFiled.set(mCallbackHandler, MyCallback(mCallbackHandler))//替换Handler里头的Callback回调
+//    }
+//
+//    class MyCallback(private val mCallbackHandler: Handler) : Callback {
+//        override fun handleMessage(msg: Message): Boolean {
+//            mCallbackHandler.handleMessage(msg)
+//            return true
+//        }
+//    }
+    /**
+     * 注册拦截器,只有第一个对象被绑定才注册
+     */
+    private fun installInterceptor() {
+        if (mMethodsMap.isNotEmpty()) return
         val builder = NetworkRequest.Builder()
         val request = builder.build()
         cmgr =
             mApplication.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        cmgr.registerNetworkCallback(request, MNetworkCallback(mNetworkInterceptCallback))
-        // if (cmgr != null) cmgr.unregisterNetworkCallback(networkCallback);
-        checkNetDataAvailability()
+        cmgr.registerNetworkCallback(request, mNetworkCallback)
+
     }
 
-    @SuppressLint("SoonBlockedPrivateApi")
-    private fun checkNetDataAvailability() {
-        //获取mCallback属性
-        val mCallbackFiled = Handler::class.java.getDeclaredField("mCallback")
-        mCallbackFiled.isAccessible = true // 授权
-
-        //获取ConnectivityManager类class
-        val mConnectivityManagerClass = Class.forName("android.net.ConnectivityManager")
-        //获取ConnectivityManager下面的静态属性字段sCallbackHandler
-        val msCallbackHandlerField = mConnectivityManagerClass.getDeclaredField("sCallbackHandler")
-        msCallbackHandlerField.isAccessible = true
-        //把sCallbackHandler属性实例化 类型为ConnectivityManager.CallbackHandler
-        val mCallbackHandler = msCallbackHandlerField.get(cmgr) as Handler
-        mCallbackFiled.set(mCallbackHandler, MyCallback(mCallbackHandler))//替换Handler里头的Callback回调
+    /**
+     * 反注册拦截器,只有最后一个对象被解绑后才反注册
+     */
+    private fun uninstallInterceptor() {
+        if (mMethodsMap.isNotEmpty()) return
+        cmgr.unregisterNetworkCallback(mNetworkCallback)
     }
 
-    class MyCallback(private val mCallbackHandler: Handler) : Callback {
-        override fun handleMessage(msg: Message): Boolean {
-            Log.i("233", msg.what.toString())//<<<---这里没有收到消息
-            mCallbackHandler.handleMessage(msg)
-            return true
-        }
-    }
-
-
+    /**
+     * 绑定对象
+     * @param obj activity或fragment对象
+     */
     fun bind(obj: Any) {
+        installInterceptor()
         val foundMethods = findAnnotationMethods(obj)
         mMethodsMap[obj] = foundMethods
         checkImmed()
     }
 
+    /**
+     * 解绑对象
+     * @param obj activity或fragment对象
+     */
     fun unbind(obj: Any) {
         mMethodsMap.remove(obj)
+        uninstallInterceptor()
     }
 
+    /**
+     * 解绑所有对象
+     */
     fun unbindAll() {
         mMethodsMap.clear()
+        uninstallInterceptor()
     }
 
     /**
@@ -106,12 +133,13 @@ object NetworkInterceptManager {
                 if (returnType.toString() != "void") return@forEach
                 //如果函数参数长度不为1,而且不是指定枚举类型,也不要
                 if (method.parameterTypes.size != 1) return@forEach
-                if (!method.parameterTypes[0].isAssignableFrom(NetworkType::class.java)) return@forEach
+                if (!method.parameterTypes[0].isAssignableFrom(NetworkResponse::class.java)) return@forEach
                 methodBeanLists.add(MethodBean(method))
             }
         }
         return methodBeanLists
     }
+
 
     private var mNetworkInterceptCallback: NetworkInterceptCallback =
         object : NetworkInterceptCallback {
@@ -120,10 +148,13 @@ object NetworkInterceptManager {
                 //由于在这里操作的线程是属于ConnectivityThread而非主线程,因此需要统一切换下
                 val message = Message.obtain()
                 message.what = HANDLER_MSG_SWITCH_TO_MAIN_THREAD
-                message.obj = type
                 mNIHandler.sendMessage(message)
             }
         }
+
+    private val mNetworkCallback = MNetworkCallback(mNetworkInterceptCallback)
+
+    private var mNIHandler = NIHandler()
 
     internal class NIHandler : Handler(Callback {
         if (it.what == HANDLER_MSG_SWITCH_TO_MAIN_THREAD) {
@@ -133,7 +164,10 @@ object NetworkInterceptManager {
                 //遍历函数集合
                 methodList?.forEach { methodBean ->
                     //反射执行函数
-                    methodBean.method.invoke(obj, it.obj)
+                    methodBean.method.invoke(
+                        obj,
+                        NetworkResponse(currentStatus, Availability.AVAILABLE)
+                    )
                 }
             }
         }
@@ -144,9 +178,9 @@ object NetworkInterceptManager {
     /**
      * 立即获取网络状态
      */
+    @TargetApi(Build.VERSION_CODES.M)
     @Suppress("DEPRECATION")
     @SuppressLint("CheckResult")
-    @TargetApi(Build.VERSION_CODES.M)
     private fun checkImmed() {
         Observable.create<NetworkType> { e ->
             val type: NetworkType

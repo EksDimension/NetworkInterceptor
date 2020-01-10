@@ -6,7 +6,7 @@ import android.view.View
 import android.widget.Toast
 import com.eks.networkinterceptor.NetworkInterceptManager
 import com.eks.networkinterceptor.annotation.NetworkChange
-import com.eks.networkinterceptor.type.NetworkType
+import com.eks.networkinterceptor.bean.NetworkResponse
 import kotlinx.android.synthetic.main.activity_first.*
 
 /**
@@ -29,8 +29,8 @@ class ThirdActivity : BaseActivity() {
     }
 
     @NetworkChange
-    fun onNetworkChanged(type: NetworkType) {
-        textView1.text = "第三页实时网络状况:${type.name}"
+    fun onNetworkChanged(res: NetworkResponse) {
+        textView1.text = "第三页实时网络状况:${res.networkType.name}"
     }
 
 }

@@ -14,11 +14,15 @@ enum class NetworkType {
      */
     CELLULAR,
     /**
-     * 非WIFI(移动数据)
+     * 蓝牙/VPN等等的其他类型
      */
     OTHER,
     /**
      * 无连接
      */
-    NONE
+    NONE,
+    /**
+     * 等待检测
+     */
+    WAITING,
 }

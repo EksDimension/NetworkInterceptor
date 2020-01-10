@@ -17,11 +17,11 @@ class MNetworkCallback(private val mNetworkInterceptCallback: NetworkInterceptCa
     /**
      * 当前的连接类型(默认为无连接)
      */
-    private var currentStatus: NetworkType = NetworkType.NONE
+    private var currentStatus: NetworkType = NetworkType.WAITING
     /**
      * 原状态(用来记录变化前的状态)
      */
-    private var lastStatus: NetworkType = NetworkType.NONE
+    private var lastStatus: NetworkType = NetworkType.WAITING
     /**
      * 存储连接类型的map <连接Id,连接类型>
      */
@@ -86,6 +86,11 @@ class MNetworkCallback(private val mNetworkInterceptCallback: NetworkInterceptCa
 //                        NetworkType.OTHER
 //                }
 //            }
+            //遍历下连接map,如果有wifi则以wifi优先
+            currentStatusMap.keys.forEach { key ->
+                if (currentStatusMap[key] == NetworkType.WIFI)
+                    currentStatus = NetworkType.WIFI
+            }
         }
         connectStatusChanged()
     }
