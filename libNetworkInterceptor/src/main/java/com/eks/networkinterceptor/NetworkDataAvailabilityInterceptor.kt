@@ -1,7 +1,6 @@
 package com.eks.networkinterceptor
 
 import android.os.SystemClock
-import android.util.Log
 import com.eks.networkinterceptor.type.DataAvailability
 import io.reactivex.Observable
 import io.reactivex.Observer
@@ -25,45 +24,47 @@ class NetworkDataAvailabilityInterceptor(private val mAvailabilityCallback: Data
 
 
     private var disposable: Disposable? = null
+//    private var counter = 0
 
 //    private var mHandler = MHandler(this)
 
 
     fun startCheck() {
-        disposable?.dispose()
+        disposable?.dispose()//再中断一次之前的下游 确保同时只执行一次任务
 //        mHandler.removeCallbacksAndMessages(null)
 //        mHandler.sendEmptyMessageDelayed(HANDLER_MSG_INTERVAL, INTERVAL_DURATION)
         Observable.create<Boolean> {
-            while (true) {
-                val networkOnline = isNetworkOnline()
-                it.onNext(networkOnline)
-                SystemClock.sleep(5000)
-            }
+            SystemClock.sleep(5000)
+            val networkOnline = isNetworkOnline()
+            it.onNext(networkOnline)
+            it.onComplete()
         }.subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread()).subscribe(object : Observer<Boolean> {
                 override fun onComplete() {
-                    Log.i("233", "完成")
+                    startCheck()//递归操作
                 }
 
                 override fun onSubscribe(d: Disposable) {
                     disposable = d
-                    Log.i("233", "开始")
                 }
 
                 override fun onNext(t: Boolean) {
-                    Log.i("233", "networkOnline:$t")
-//                    startCheck()
+                    if (t) {
+                        mAvailabilityCallback.onChecked(DataAvailability.AVAILABLE)
+                    } else {
+                        mAvailabilityCallback.onChecked(DataAvailability.UNABAILABLE)
+                    }
                 }
 
                 override fun onError(e: Throwable) {
-                    Log.i("233", "onError:$e")
+                    startCheck()//递归操作
                 }
             })
     }
 
     fun stopCheck() {
 //        mHandler.removeCallbacksAndMessages(null)
-        disposable?.dispose()
+        disposable?.dispose()//中断下游不再接收
     }
 
 //    class MHandler(private val mNetworkDataAvailabilityInterceptor: NetworkDataAvailabilityInterceptor) : Handler() {
@@ -78,11 +79,11 @@ class NetworkDataAvailabilityInterceptor(private val mAvailabilityCallback: Data
         fun onChecked(dataAvailability: DataAvailability)
     }
 
-    fun isNetworkOnline(): Boolean {
+    private fun isNetworkOnline(): Boolean {
         val runtime = Runtime.getRuntime()
         var ipProcess: Process? = null
         try {
-            ipProcess = runtime.exec("ping -c 5 -w 4 223.5.5.5")
+            ipProcess = runtime.exec("ping -c 5 -w 4 www.baidu.com")
             val input: InputStream = ipProcess.inputStream
             val `in` = BufferedReader(InputStreamReader(input))
             val stringBuffer = StringBuffer()
