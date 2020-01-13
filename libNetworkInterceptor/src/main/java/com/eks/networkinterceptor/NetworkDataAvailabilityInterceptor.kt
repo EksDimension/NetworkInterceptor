@@ -1,41 +1,36 @@
 package com.eks.networkinterceptor
 
 import android.os.SystemClock
+import android.util.Log
+import com.eks.networkinterceptor.bean.SocketAddressForTesting
 import com.eks.networkinterceptor.type.DataAvailability
 import io.reactivex.Observable
 import io.reactivex.Observer
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
-import java.io.BufferedReader
-import java.io.IOException
-import java.io.InputStream
-import java.io.InputStreamReader
+import java.net.InetSocketAddress
+import java.net.Socket
 
 
 /**
  * 检测网络是否真正连通
  * Created by Riggs on 1/10/2020
  */
-class NetworkDataAvailabilityInterceptor(private val mAvailabilityCallback: DataAvailabilityCallback) {
-
-    private var HANDLER_MSG_INTERVAL = 0
-    private var INTERVAL_DURATION: Long = 5000
+class NetworkDataAvailabilityInterceptor(
+    private val mAvailabilityCallback: DataAvailabilityCallback,
+    private var customeServers: Array<SocketAddressForTesting>? = null
+) {
 
 
     private var disposable: Disposable? = null
-//    private var counter = 0
-
-//    private var mHandler = MHandler(this)
 
 
     fun startCheck() {
         disposable?.dispose()//再中断一次之前的下游 确保同时只执行一次任务
-//        mHandler.removeCallbacksAndMessages(null)
-//        mHandler.sendEmptyMessageDelayed(HANDLER_MSG_INTERVAL, INTERVAL_DURATION)
         Observable.create<Boolean> {
             SystemClock.sleep(5000)
-            val networkOnline = isNetworkOnline()
+            val networkOnline = isDataAvailable()
             it.onNext(networkOnline)
             it.onComplete()
         }.subscribeOn(Schedulers.io())
@@ -62,49 +57,70 @@ class NetworkDataAvailabilityInterceptor(private val mAvailabilityCallback: Data
             })
     }
 
-    fun stopCheck() {
-//        mHandler.removeCallbacksAndMessages(null)
-        disposable?.dispose()//中断下游不再接收
+    /**
+     * 检查数据是否可用
+     */
+    private fun isDataAvailable(): Boolean {
+        connectSucceed = false
+        val servers: Array<SocketAddressForTesting>? =
+            if (customeServers != null && customeServers?.isNotEmpty() == true) {
+                //如果有使用自定义服务器
+                //那就用自定义服务器去测试
+                customeServers
+
+            } else {
+                defaultServers
+            }
+        //对多个服务器进行遍历连接
+        servers?.forEach {
+            val isConnected = checkBySocket(it)
+            Log.i("233", "服务器:${it.hostName} 端口:${it.port} 是否成功:$isConnected")
+            if (isConnected) connectSucceed = true
+        }
+        return connectSucceed
     }
 
-//    class MHandler(private val mNetworkDataAvailabilityInterceptor: NetworkDataAvailabilityInterceptor) : Handler() {
-//        override fun handleMessage(msg: Message) {
-//            super.handleMessage(msg)
-//            val networkOnline = mNetworkDataAvailabilityInterceptor.isNetworkOnline()
-//            Log.i("233","networkOnline:$networkOnline")
-//        }
-//    }
+    fun stopCheck() {
+        disposable?.dispose()//中断下游不再接收
+    }
 
     interface DataAvailabilityCallback {
         fun onChecked(dataAvailability: DataAvailability)
     }
 
-    private fun isNetworkOnline(): Boolean {
-        val runtime = Runtime.getRuntime()
-        var ipProcess: Process? = null
+    private var socket: Socket? = null
+
+    private fun checkBySocket(server: SocketAddressForTesting): Boolean {
+
         try {
-            ipProcess = runtime.exec("ping -c 5 -w 4 www.baidu.com")
-            val input: InputStream = ipProcess.inputStream
-            val `in` = BufferedReader(InputStreamReader(input))
-            val stringBuffer = StringBuffer()
-            var content: String?
-            while (`in`.readLine().also { content = it } != null) {
-                stringBuffer.append(content)
+            if (socket != null) {
+                socket?.close()
+                socket = null
             }
-            val exitValue = ipProcess.waitFor()
-            return if (exitValue == 0) { //WiFi连接，网络正常
-                true
-            } else {
-                stringBuffer.indexOf("100% packet loss") == -1
-            }
-        } catch (e: IOException) {
-            e.printStackTrace()
-        } catch (e: InterruptedException) {
-            e.printStackTrace()
+            socket = Socket()
+            val inetSocketAddress = InetSocketAddress(server.hostName, server.port)
+            socket?.connect(inetSocketAddress, 4000)
+        } catch (e: Exception) {
+
         } finally {
-            ipProcess?.destroy()
-            runtime.gc()
+            socket?.close()
+            val isConnected = socket?.isConnected ?: false
+            socket = null
+            return isConnected
         }
-        return false
     }
+
+    /**
+     * 服务器是否连通(有任意一个连通了都行)
+     */
+    private var connectSucceed = false
+    /**
+     * 默认策略
+     */
+    private var defaultServers = arrayOf(
+        SocketAddressForTesting("www.baidu.com", 80),
+        SocketAddressForTesting("www.163.com", 80),
+        SocketAddressForTesting("www.qq.com", 80),
+        SocketAddressForTesting("www.1688.com", 80)
+    )
 }

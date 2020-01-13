@@ -11,9 +11,11 @@ import android.os.Build
 import android.os.Handler
 import android.os.Handler.Callback
 import android.os.Message
+import android.util.Log
 import com.eks.networkinterceptor.annotation.NetworkChange
 import com.eks.networkinterceptor.bean.MethodBean
 import com.eks.networkinterceptor.bean.NetworkResponse
+import com.eks.networkinterceptor.bean.SocketAddressForTesting
 import com.eks.networkinterceptor.callback.NetworkInterceptCallback
 import com.eks.networkinterceptor.type.DataAvailability
 import com.eks.networkinterceptor.type.NetworkType
@@ -32,11 +34,13 @@ object NetworkInterceptManager {
     private var mMethodsMap: HashMap<Any, List<MethodBean>> = hashMapOf()
     var currentType: NetworkType = NetworkType.WAITING
     var currentAvailability: DataAvailability = DataAvailability.WAITING
+    private var mCustomeServers: Array<SocketAddressForTesting>? = null
 
     private var HANDLER_MSG_SWITCH_TO_MAIN_THREAD = 1
 
-    fun init(application: Application) {
+    fun init(application: Application): NetworkInterceptManager {
         mApplication = application
+        return this
         // if (cmgr != null) cmgr.unregisterNetworkCallback(networkCallback);
 //        checkNetDataAvailability()
     }
@@ -98,14 +102,14 @@ object NetworkInterceptManager {
     /**
      * 恢复-对应onResume
      */
-    fun resume(){
+    fun resume() {
         mNetworkDataAvailabilityInterceptor.startCheck()
     }
 
     /**
      * 暂停-对应onPause
      */
-    fun pause(){
+    fun pause() {
         mNetworkDataAvailabilityInterceptor.stopCheck()
     }
 
@@ -187,12 +191,21 @@ object NetworkInterceptManager {
         true
     })
 
+    fun setCustomServers(customeServers: Array<SocketAddressForTesting>) {
+        mCustomeServers = customeServers
+    }
+
     private val mNetworkDataAvailabilityInterceptor =
         NetworkDataAvailabilityInterceptor(object :
             NetworkDataAvailabilityInterceptor.DataAvailabilityCallback {
             override fun onChecked(dataAvailability: DataAvailability) {
+                Log.i("233", "最终数据可用性:${dataAvailability.name}")
+                if (currentAvailability != dataAvailability) {
+                    currentAvailability = dataAvailability
+                    mNetworkInterceptCallback.onNetworkStatusChanged(currentType)
+                }
             }
-        })
+        }, mCustomeServers)
 
     /**
      * 立即获取网络状态
