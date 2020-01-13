@@ -1,7 +1,6 @@
 package com.eks.networkinterceptor
 
 import android.os.SystemClock
-import android.util.Log
 import com.eks.networkinterceptor.bean.SocketAddressForTesting
 import com.eks.networkinterceptor.type.DataAvailability
 import io.reactivex.Observable
@@ -18,18 +17,24 @@ import java.net.Socket
  * Created by Riggs on 1/10/2020
  */
 class NetworkDataAvailabilityInterceptor(
-    private val mAvailabilityCallback: DataAvailabilityCallback,
-    private var customeServers: Array<SocketAddressForTesting>? = null
+    private val mAvailabilityCallback: DataAvailabilityCallback
 ) {
 
+    companion object {
+        var TAG = NetworkDataAvailabilityInterceptor::class.java.simpleName
+        var INTERVAL_TIME_IMMED: Long = 500
+        var INTERVAL_TIME_NORMAL: Long = 5000
+    }
 
+    private var mCustomeServers: Array<SocketAddressForTesting>? = null
     private var disposable: Disposable? = null
+    private var checkIntervalTime = INTERVAL_TIME_IMMED
 
 
     fun startCheck() {
         disposable?.dispose()//再中断一次之前的下游 确保同时只执行一次任务
         Observable.create<Boolean> {
-            SystemClock.sleep(5000)
+            SystemClock.sleep(checkIntervalTime)
             val networkOnline = isDataAvailable()
             it.onNext(networkOnline)
             it.onComplete()
@@ -45,8 +50,10 @@ class NetworkDataAvailabilityInterceptor(
 
                 override fun onNext(t: Boolean) {
                     if (t) {
+                        checkIntervalTime = INTERVAL_TIME_NORMAL
                         mAvailabilityCallback.onChecked(DataAvailability.AVAILABLE)
                     } else {
+                        checkIntervalTime = INTERVAL_TIME_IMMED
                         mAvailabilityCallback.onChecked(DataAvailability.UNABAILABLE)
                     }
                 }
@@ -63,18 +70,17 @@ class NetworkDataAvailabilityInterceptor(
     private fun isDataAvailable(): Boolean {
         connectSucceed = false
         val servers: Array<SocketAddressForTesting>? =
-            if (customeServers != null && customeServers?.isNotEmpty() == true) {
+            if (mCustomeServers != null && mCustomeServers?.isNotEmpty() == true) {
                 //如果有使用自定义服务器
                 //那就用自定义服务器去测试
-                customeServers
-
+                mCustomeServers
             } else {
                 defaultServers
             }
         //对多个服务器进行遍历连接
         servers?.forEach {
             val isConnected = checkBySocket(it)
-            Log.i("233", "服务器:${it.hostName} 端口:${it.port} 是否成功:$isConnected")
+//            Log.i(TAG, "服务器:${it.hostName} 端口:${it.port} 是否成功:$isConnected")
             if (isConnected) connectSucceed = true
         }
         return connectSucceed
@@ -108,6 +114,10 @@ class NetworkDataAvailabilityInterceptor(
             socket = null
             return isConnected
         }
+    }
+
+    fun setCustomServers(customServers: Array<SocketAddressForTesting>?) {
+        mCustomeServers = customServers
     }
 
     /**

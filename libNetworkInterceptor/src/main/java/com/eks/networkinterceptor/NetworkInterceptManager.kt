@@ -2,9 +2,9 @@ package com.eks.networkinterceptor
 
 import android.annotation.SuppressLint
 import android.annotation.TargetApi
-import android.app.Application
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
@@ -19,6 +19,7 @@ import com.eks.networkinterceptor.bean.SocketAddressForTesting
 import com.eks.networkinterceptor.callback.NetworkInterceptCallback
 import com.eks.networkinterceptor.type.DataAvailability
 import com.eks.networkinterceptor.type.NetworkType
+import com.eks.networkinterceptor.type.WifiAvailability
 import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.schedulers.Schedulers
@@ -29,8 +30,9 @@ import io.reactivex.schedulers.Schedulers
  */
 object NetworkInterceptManager {
 
-    private lateinit var mApplication: Application
-    private lateinit var cmgr: ConnectivityManager
+    private var TAG = NetworkInterceptManager.javaClass.simpleName
+
+    private var cmgr: ConnectivityManager? = null
     private var mMethodsMap: HashMap<Any, List<MethodBean>> = hashMapOf()
     var currentType: NetworkType = NetworkType.WAITING
     var currentAvailability: DataAvailability = DataAvailability.WAITING
@@ -38,35 +40,10 @@ object NetworkInterceptManager {
 
     private var HANDLER_MSG_SWITCH_TO_MAIN_THREAD = 1
 
-    fun init(application: Application): NetworkInterceptManager {
-        mApplication = application
+    fun init(): NetworkInterceptManager {
         return this
-        // if (cmgr != null) cmgr.unregisterNetworkCallback(networkCallback);
-//        checkNetDataAvailability()
     }
 
-//    @SuppressLint("SoonBlockedPrivateApi")
-//    private fun checkNetDataAvailability() {
-//        //获取mCallback属性
-//        val mCallbackFiled = Handler::class.java.getDeclaredField("mCallback")
-//        mCallbackFiled.isAccessible = true // 授权
-//
-//        //获取ConnectivityManager类class
-//        val mConnectivityManagerClass = Class.forName("android.net.ConnectivityManager")
-//        //获取ConnectivityManager下面的静态属性字段sCallbackHandler
-//        val msCallbackHandlerField = mConnectivityManagerClass.getDeclaredField("sCallbackHandler")
-//        msCallbackHandlerField.isAccessible = true
-//        //把sCallbackHandler属性实例化 类型为ConnectivityManager.CallbackHandler
-//        val mCallbackHandler = msCallbackHandlerField.get(cmgr) as Handler
-//        mCallbackFiled.set(mCallbackHandler, MyCallback(mCallbackHandler))//替换Handler里头的Callback回调
-//    }
-//
-//    class MyCallback(private val mCallbackHandler: Handler) : Callback {
-//        override fun handleMessage(msg: Message): Boolean {
-//            mCallbackHandler.handleMessage(msg)
-//            return true
-//        }
-//    }
     /**
      * 注册拦截器,只有第一个对象被绑定才注册
      */
@@ -75,9 +52,10 @@ object NetworkInterceptManager {
         val builder = NetworkRequest.Builder()
         val request = builder.build()
         cmgr =
-            mApplication.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        cmgr.registerNetworkCallback(request, mNetworkCallback)
+            AppGlobals.getApplication()?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        cmgr?.registerNetworkCallback(request, mNetworkCallback)
         mNetworkDataAvailabilityInterceptor.startCheck()
+        mWifiAvailabilityInterceptor.startCheck()
     }
 
     /**
@@ -85,7 +63,7 @@ object NetworkInterceptManager {
      */
     private fun uninstallInterceptor() {
         if (mMethodsMap.isNotEmpty()) return
-        cmgr.unregisterNetworkCallback(mNetworkCallback)
+        cmgr?.unregisterNetworkCallback(mNetworkCallback)
     }
 
     /**
@@ -104,6 +82,7 @@ object NetworkInterceptManager {
      */
     fun resume() {
         mNetworkDataAvailabilityInterceptor.startCheck()
+        mWifiAvailabilityInterceptor.startCheck()
     }
 
     /**
@@ -111,6 +90,7 @@ object NetworkInterceptManager {
      */
     fun pause() {
         mNetworkDataAvailabilityInterceptor.stopCheck()
+        mWifiAvailabilityInterceptor.stopCheck()
     }
 
     /**
@@ -183,6 +163,7 @@ object NetworkInterceptManager {
                 val methodList = mMethodsMap[obj]
                 //遍历函数集合
                 methodList?.forEach { methodBean ->
+                    Log.i(TAG, "网络连接发生变化：${currentType.name} ${currentAvailability.name}")
                     //反射执行函数
                     methodBean.method.invoke(obj, NetworkResponse(currentType, currentAvailability))
                 }
@@ -193,19 +174,36 @@ object NetworkInterceptManager {
 
     fun setCustomServers(customeServers: Array<SocketAddressForTesting>) {
         mCustomeServers = customeServers
+        mNetworkDataAvailabilityInterceptor.setCustomServers(mCustomeServers)
     }
 
     private val mNetworkDataAvailabilityInterceptor =
         NetworkDataAvailabilityInterceptor(object :
             NetworkDataAvailabilityInterceptor.DataAvailabilityCallback {
             override fun onChecked(dataAvailability: DataAvailability) {
-                Log.i("233", "最终数据可用性:${dataAvailability.name}")
                 if (currentAvailability != dataAvailability) {
+//                    Log.i(TAG, "网络数据可用性变化:${dataAvailability.name}")
                     currentAvailability = dataAvailability
                     mNetworkInterceptCallback.onNetworkStatusChanged(currentType)
                 }
             }
-        }, mCustomeServers)
+        })
+
+    private val mWifiAvailabilityInterceptor =
+        WifiAvailabilityInterceptor(object : WifiAvailabilityInterceptor.WifiAvailabilityCallback {
+            override fun onChecked(
+                wifiAvailability: WifiAvailability,
+                wifiNetwork: Network?
+            ) {
+                if (wifiNetwork != null && wifiAvailability == WifiAvailability.CONNECTED_BUT_UNAVAILABLE) {
+//                    Log.i(TAG, "Wifi已连接但不可用")
+                    //有连wifi 但wifi不可用. 那就得要去掉wifi网络
+                    mNetworkCallback.onLost(wifiNetwork)
+                } else {
+//                    Log.i(TAG, "Wifi未连接 或完全可用")
+                }
+            }
+        })
 
     /**
      * 立即获取网络状态
@@ -217,7 +215,7 @@ object NetworkInterceptManager {
         Observable.create<NetworkType> { e ->
             val type: NetworkType
             if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)) {//6.0后用activeNetwork获取
-                val networkCapabilities = cmgr.getNetworkCapabilities(cmgr.activeNetwork)
+                val networkCapabilities = cmgr?.getNetworkCapabilities(cmgr?.activeNetwork)
                 type = if (networkCapabilities == null) {
                     NetworkType.NONE
                 } else {
@@ -234,7 +232,7 @@ object NetworkInterceptManager {
                     }
                 }
             } else {//低于6.0用activeNetworkInfo
-                val activeNetworkInfo = cmgr.activeNetworkInfo
+                val activeNetworkInfo = cmgr?.activeNetworkInfo
                 type =
                     if (activeNetworkInfo == null || !activeNetworkInfo.isAvailable || !activeNetworkInfo.isConnected) {
                         NetworkType.NONE
