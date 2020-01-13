@@ -9,6 +9,7 @@ import com.eks.networkinterceptor.NetworkInterceptManager
 class BaseApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        NetworkInterceptManager.init(this)
+        NetworkInterceptManager.init()
+//            .setCustomServers(arrayOf(SocketAddressForTesting("www.google.com",80),SocketAddressForTesting("www.bilibili.com",80)))
     }
 }

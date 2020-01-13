@@ -25,14 +25,14 @@ class SecondActivity : BaseActivity() {
         btn1.setOnClickListener {
             Toast.makeText(
                 this@SecondActivity,
-                "当前网络状况:${NetworkInterceptManager.currentType.name}", Toast.LENGTH_SHORT
+                "当前网络状况:\n类型${NetworkInterceptManager.currentType.name}\n可用性${NetworkInterceptManager.currentAvailability.name}", Toast.LENGTH_SHORT
             ).show()
         }
     }
 
     @NetworkChange
     fun onNetworkChanged(res: NetworkResponse) {
-        textView1.text = "第二页实时网络状况:${res.networkType.name}"
+        textView1.text = "第二页实时网络状况:\n类型${res.networkType.name}\n可用性${res.availability.name}"
     }
 
 }

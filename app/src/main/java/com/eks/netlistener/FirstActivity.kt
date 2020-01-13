@@ -21,13 +21,13 @@ class FirstActivity : BaseActivity() {
         btn1.setOnClickListener {
             Toast.makeText(
                 this@FirstActivity,
-                "当前网络状况:\n类型${NetworkInterceptManager.currentType.name} 数据${NetworkInterceptManager.currentAvailability.name}", Toast.LENGTH_SHORT
+                "当前网络状况:\n类型${NetworkInterceptManager.currentType.name}\n可用性${NetworkInterceptManager.currentAvailability.name}", Toast.LENGTH_SHORT
             ).show()
         }
     }
 
     @NetworkChange
     fun onNetworkChanged(res: NetworkResponse) {
-        textView1.text = "第一页实时网络状况:\n类型${res.networkType.name} 数据${res.availability.name}"
+        textView1.text = "第一页实时网络状况:\n类型${res.networkType.name}\n可用性${res.availability.name}"
     }
 }
