@@ -1,6 +1,6 @@
 # 一款网络环境的实时监听框架
 
-### 情景需求
+## 情景需求
 > 在咱们app开发过程中，经常都会有判断网络所属环境的需求。比如 **使用移动数据的情况下** 进行 **大文件上传下载、音视频播放** 等情况。都应该给予用户足够的提醒，增加用户体验感。
 
 
@@ -19,11 +19,11 @@
 > ---- 连着Wifi呢，可是Wifi大姨妈，网络堵塞住了。
 ---- Wifi也连着，也大姨妈了，我这堵住了后，手机却用流量跑起来了，但一直提示我Wifi是连接的。这不坑爹吗？
 
-### 对此
+## 对此
 在这里，给大家献上一套能应对上述综合情况的小框架。
 
 
-## 简单使用指南
+### 简单使用指南
 #### 版本要求：目前理论上只支持Android 5.0及以上使用。
 ##### 或者先来个DemoAPK试用下??? [点这下载](https://github.com/EksDimension/NetworkInterceptor/raw/master/app/testDemo.apk "点这下载")
 
@@ -166,9 +166,34 @@ btnTest.setOnClickListener {
 ```
 
 
+------------
+
+
+
+### 既然可以测试网络数据有效性，那么我可以仅指定连接的服务器吗？
+##### 可以，真可以，有办法的。
+比如整个App里面，一共用到3个已知的服务器ip，分别是119.124.21.213 120.124.129.23 115.129.59.23 端口分别为80 81 82
+那么在Application里头设置自定义服务器即可
+```java
+class TestApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        NetworkInterceptManager.setCustomServers(
+            arrayOf(
+                SocketAddressForTesting("119.124.21.213", 80),
+                SocketAddressForTesting("120.124.129.23", 81),
+                SocketAddressForTesting("115.129.59.23", 82)
+            )
+        )
+    }
+}
+```
+
+> Q：只能放Application吗？
+A：不一定，举个栗子而已，只不过由于NetworkInterceptManager是个单例的货，所以一次设置后就永久有效了。
 
 ------------
-### 温馨提示
+## 温馨提示
 由于这还是首次发布个人的通用框架，里面还有很多细节是还没完善，距离工业级应用还有很大一段距离要走，处于局部测试阶段中，有任何不足之处、技术建议，还请大家多多指点 多多批评。
 
 #### 本框架最初灵感来源于Simon老师[（点击访问博客）](https://www.cmonbaby.com/ "（点这里访问）")，特此表示感谢。同时也感谢所有加入测试行列的小伙伴们~
