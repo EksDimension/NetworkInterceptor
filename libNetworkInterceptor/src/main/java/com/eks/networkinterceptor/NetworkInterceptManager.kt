@@ -40,9 +40,9 @@ object NetworkInterceptManager {
 
     private var HANDLER_MSG_SWITCH_TO_MAIN_THREAD = 1
 
-    fun init(): NetworkInterceptManager {
-        return this
-    }
+//    fun init(): NetworkInterceptManager {
+//        return this
+//    }
 
     /**
      * 注册拦截器,只有第一个对象被绑定才注册
