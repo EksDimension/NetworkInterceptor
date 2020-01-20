@@ -107,7 +107,7 @@ class TestActivity : AppCompatActivity() {
 ```
 #####在Fragment中
 ```java
-class AFragment : Fragment() {
+class TestFragment : Fragment() {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
