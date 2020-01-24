@@ -48,7 +48,7 @@ buildscript {
 #### 然后针对业务module/library 添加依赖
 ##### Gradle
 ```gradle
-implementation 'com.eks.framework:network_interceptor:1.0.3'
+implementation 'com.eks.framework:network_interceptor:1.0.4'
 ```
 
 ##### Maven
@@ -56,7 +56,7 @@ implementation 'com.eks.framework:network_interceptor:1.0.3'
 <dependency>
   <groupId>com.eks.framework</groupId>
   <artifactId>network_interceptor</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
   <type>pom</type>
 </dependency>
 ```
@@ -67,31 +67,14 @@ implementation 'com.eks.framework:network_interceptor:1.0.3'
 #### 详细应用
 ##### 在Activity中
 ```java
-class TestActivity : AppCompatActivity() {
+class TestActivity : AppCompatActivity() , LifecycleOwner {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-		//执行create
-        NetworkInterceptManager.create(this)
+	//执行create，并加入lifecycle
+        lifecycle.addObserver(NetworkInterceptManager.create(this))
     }
 
-    override fun onResume() {
-        super.onResume()
-		//执行resume
-        NetworkInterceptManager.resume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-		//执行pause
-        NetworkInterceptManager.pause()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-		//执行destroy
-        NetworkInterceptManager.destroy(this)
-    }
 	/**
 	 *写上NetworkChange注解，函数名任取，形参有且只有一个，类型为NetworkResponse
 	 *这个函数就是接收网络回调用到的
@@ -107,32 +90,15 @@ class TestActivity : AppCompatActivity() {
 ```
 ##### 在Fragment中
 ```java
-class TestFragment : Fragment() {
+class TestFragment : Fragment() , LifecycleOwner {
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-		//执行create
-        NetworkInterceptManager.create(this)
+	//执行create，并加入lifecycle
+        lifecycle.addObserver(NetworkInterceptManager.create(this))
         return super.onCreateView(inflater, container, savedInstanceState)
-    }
-
-    override fun onResume() {
-        super.onResume()
-		//执行resume
-        NetworkInterceptManager.resume()
-    }
-
-    override fun onPause() {
-        super.onPause()
-		//执行pause
-        NetworkInterceptManager.pause()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        NetworkInterceptManager.destroy(this)
     }
 
 	//跟acivity一样 不重复写了
