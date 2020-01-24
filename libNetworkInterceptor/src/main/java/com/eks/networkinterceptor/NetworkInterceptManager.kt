@@ -17,12 +17,10 @@ import com.eks.networkinterceptor.bean.MethodBean
 import com.eks.networkinterceptor.bean.NetworkResponse
 import com.eks.networkinterceptor.bean.SocketAddressForTesting
 import com.eks.networkinterceptor.callback.NetworkInterceptCallback
+import com.eks.networkinterceptor.thread.ThreadPoolManager
 import com.eks.networkinterceptor.type.DataAvailability
 import com.eks.networkinterceptor.type.NetworkType
 import com.eks.networkinterceptor.type.WifiAvailability
-import io.reactivex.Observable
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.schedulers.Schedulers
 
 /**
  * 网络拦截管理器
@@ -212,7 +210,44 @@ object NetworkInterceptManager {
     @Suppress("DEPRECATION")
     @SuppressLint("CheckResult")
     private fun checkImmed() {
-        Observable.create<NetworkType> { e ->
+//        Observable.create<NetworkType> { e ->
+//            val type: NetworkType
+//            if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)) {//6.0后用activeNetwork获取
+//                val networkCapabilities = cmgr?.getNetworkCapabilities(cmgr?.activeNetwork)
+//                type = if (networkCapabilities == null) {
+//                    NetworkType.NONE
+//                } else {
+//                    when {
+//                        networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
+//                            NetworkType.WIFI
+//                        }
+//                        networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
+//                            NetworkType.CELLULAR
+//                        }
+//                        else -> {
+//                            NetworkType.NONE
+//                        }
+//                    }
+//                }
+//            } else {//低于6.0用activeNetworkInfo
+//                val activeNetworkInfo = cmgr?.activeNetworkInfo
+//                type =
+//                    if (activeNetworkInfo == null || !activeNetworkInfo.isAvailable || !activeNetworkInfo.isConnected) {
+//                        NetworkType.NONE
+//                    } else {
+//                        when (activeNetworkInfo.type) {
+//                            -1 -> NetworkType.NONE
+//                            ConnectivityManager.TYPE_MOBILE -> NetworkType.CELLULAR
+//                            ConnectivityManager.TYPE_WIFI -> NetworkType.WIFI
+//                            else -> NetworkType.OTHER
+//                        }
+//                    }
+//            }
+//            e.onNext(type)
+//        }.subscribeOn(Schedulers.io())
+//            .observeOn(AndroidSchedulers.mainThread())
+//            .subscribe { mNetworkInterceptCallback.onNetworkStatusChanged(it) }
+        ThreadPoolManager.getInstance().execute {
             val type: NetworkType
             if ((Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)) {//6.0后用activeNetwork获取
                 val networkCapabilities = cmgr?.getNetworkCapabilities(cmgr?.activeNetwork)
@@ -245,9 +280,9 @@ object NetworkInterceptManager {
                         }
                     }
             }
-            e.onNext(type)
-        }.subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { mNetworkInterceptCallback.onNetworkStatusChanged(it) }
+            ThreadPoolManager.getInstance().runOnUiThread {
+                mNetworkInterceptCallback.onNetworkStatusChanged(type)
+            }
+        }
     }
 }

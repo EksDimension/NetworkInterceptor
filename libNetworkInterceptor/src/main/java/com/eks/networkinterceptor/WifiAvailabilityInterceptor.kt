@@ -6,13 +6,9 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
-import android.os.SystemClock
+import com.eks.networkinterceptor.thread.ThreadPoolManager
 import com.eks.networkinterceptor.type.WifiAvailability
-import io.reactivex.Observable
-import io.reactivex.Observer
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.Disposable
-import io.reactivex.schedulers.Schedulers
+import com.zhongruiandroid.timedown.PollingCheck
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
 
@@ -23,51 +19,82 @@ import java.lang.reflect.Method
 class WifiAvailabilityInterceptor(
     private val mWifiAvailability: WifiAvailabilityCallback
 ) {
+    private var pollingCheck: PollingCheck? = null
+
     companion object {
         var INTERVAL_TIME_IMMED: Long = 500
         var INTERVAL_TIME_NORMAL: Long = 5000
     }
 
-    private var disposable: Disposable? = null
+    //    private var disposable: Disposable? = null
     private var checkIntervalTime = INTERVAL_TIME_IMMED
 
     fun startCheck() {
-        disposable?.dispose()//再中断一次之前的下游 确保同时只执行一次任务
-        Observable.create<Boolean> {
-            SystemClock.sleep(checkIntervalTime)
-            val isWifiConnectAndUnavailable = isWifiConnectAndUnavailable()
-            it.onNext(isWifiConnectAndUnavailable)
-            it.onComplete()
-        }.subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread()).subscribe(object : Observer<Boolean> {
-                override fun onComplete() {
-                    startCheck()//递归操作
-                }
+//        disposable?.dispose()//再中断一次之前的下游 确保同时只执行一次任务
+//        Observable.create<Boolean> {
+//            SystemClock.sleep(checkIntervalTime)
+//            val isWifiConnectAndUnavailable = isWifiConnectAndUnavailable()
+//            it.onNext(isWifiConnectAndUnavailable)
+//            it.onComplete()
+//        }.subscribeOn(Schedulers.io())
+//            .observeOn(AndroidSchedulers.mainThread()).subscribe(object : Observer<Boolean> {
+//                override fun onComplete() {
+//                    startCheck()//递归操作
+//                }
+//
+//                override fun onSubscribe(d: Disposable) {
+//                    disposable = d
+//                }
+//
+//                override fun onNext(t: Boolean) {
+//                    if (t) {
+//                        checkIntervalTime = INTERVAL_TIME_IMMED
+//                        mWifiAvailability.onChecked(
+//                            WifiAvailability.CONNECTED_BUT_UNAVAILABLE,
+//                            wifiNetwork
+//                        )
+//                    } else {
+//                        checkIntervalTime = INTERVAL_TIME_NORMAL
+//                        mWifiAvailability.onChecked(
+//                            WifiAvailability.UNCONNECTED_OR_AVAILABLE,
+//                            wifiNetwork
+//                        )
+//                    }
+//                }
+//
+//                override fun onError(e: Throwable) {
+//                    startCheck()//递归操作
+//                }
+//            })
 
-                override fun onSubscribe(d: Disposable) {
-                    disposable = d
-                }
-
-                override fun onNext(t: Boolean) {
-                    if (t) {
-                        checkIntervalTime = INTERVAL_TIME_IMMED
-                        mWifiAvailability.onChecked(
-                            WifiAvailability.CONNECTED_BUT_UNAVAILABLE,
-                            wifiNetwork
-                        )
-                    } else {
-                        checkIntervalTime = INTERVAL_TIME_NORMAL
-                        mWifiAvailability.onChecked(
-                            WifiAvailability.UNCONNECTED_OR_AVAILABLE,
-                            wifiNetwork
-                        )
+        if (pollingCheck == null) pollingCheck = PollingCheck.get()
+        pollingCheck?.startForMillis(checkIntervalTime, 0, object : PollingCheck.CheckCallback {
+            override fun onCheck(checkCount: Int): Boolean {
+                ThreadPoolManager.getInstance().execute {
+                    val isWifiConnectAndUnavailable = isWifiConnectAndUnavailable()
+                    ThreadPoolManager.getInstance().runOnUiThread {
+                        if (isWifiConnectAndUnavailable) {
+                            checkIntervalTime = INTERVAL_TIME_IMMED
+                            mWifiAvailability.onChecked(
+                                WifiAvailability.CONNECTED_BUT_UNAVAILABLE,
+                                wifiNetwork
+                            )
+                        } else {
+                            checkIntervalTime = INTERVAL_TIME_NORMAL
+                            mWifiAvailability.onChecked(
+                                WifiAvailability.UNCONNECTED_OR_AVAILABLE,
+                                wifiNetwork
+                            )
+                        }
+                        startCheck()//递归操作
                     }
                 }
+                return true
+            }
 
-                override fun onError(e: Throwable) {
-                    startCheck()//递归操作
-                }
-            })
+            override fun onComplete() {
+            }
+        })
     }
 
     //连上联网wifi的network对象
@@ -110,7 +137,9 @@ class WifiAvailabilityInterceptor(
     }
 
     fun stopCheck() {
-        disposable?.dispose()//中断下游不再接收
+//        disposable?.dispose()//中断下游不再接收
+        pollingCheck?.onDestroy()
+        pollingCheck = null
     }
 
     interface WifiAvailabilityCallback {
