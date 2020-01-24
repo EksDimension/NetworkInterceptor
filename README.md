@@ -48,7 +48,7 @@ buildscript {
 #### 然后针对业务module/library 添加依赖
 ##### Gradle
 ```gradle
-implementation 'com.eks.framework:network_interceptor:1.0.2'
+implementation 'com.eks.framework:network_interceptor:1.0.3'
 ```
 
 ##### Maven
@@ -56,7 +56,7 @@ implementation 'com.eks.framework:network_interceptor:1.0.2'
 <dependency>
   <groupId>com.eks.framework</groupId>
   <artifactId>network_interceptor</artifactId>
-  <version>1.0.2</version>
+  <version>1.0.3</version>
   <type>pom</type>
 </dependency>
 ```
