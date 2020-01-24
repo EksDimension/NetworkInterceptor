@@ -11,7 +11,9 @@ import android.os.Build
 import android.os.Handler
 import android.os.Handler.Callback
 import android.os.Message
-import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.OnLifecycleEvent
 import com.eks.networkinterceptor.annotation.NetworkChange
 import com.eks.networkinterceptor.bean.MethodBean
 import com.eks.networkinterceptor.bean.NetworkResponse
@@ -26,7 +28,7 @@ import com.eks.networkinterceptor.type.WifiAvailability
  * 网络拦截管理器
  * Created by Riggs on 2019/3/4
  */
-object NetworkInterceptManager {
+object NetworkInterceptManager : LifecycleObserver {
 
     private var TAG = NetworkInterceptManager.javaClass.simpleName
 
@@ -68,17 +70,20 @@ object NetworkInterceptManager {
      * 创建-绑定对象 对应onCreate/onCreateView
      * @param obj activity或fragment对象
      */
-    fun create(obj: Any) {
+    @OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+    fun create(obj: Any): NetworkInterceptManager {
         installInterceptor()
         val foundMethods = findAnnotationMethods(obj)
         mMethodsMap[obj] = foundMethods
         checkImmed()
+        return this
     }
 
     /**
      * 恢复-对应onResume
      */
-    fun resume() {
+    @OnLifecycleEvent(Lifecycle.Event.ON_RESUME)
+    private fun resume() {
         mNetworkDataAvailabilityInterceptor.startCheck()
         mWifiAvailabilityInterceptor.startCheck()
     }
@@ -86,7 +91,8 @@ object NetworkInterceptManager {
     /**
      * 暂停-对应onPause
      */
-    fun pause() {
+    @OnLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+    private fun pause() {
         mNetworkDataAvailabilityInterceptor.stopCheck()
         mWifiAvailabilityInterceptor.stopCheck()
     }
@@ -95,7 +101,8 @@ object NetworkInterceptManager {
      * 销毁-解绑对象 对应onDestroyed/onDestroyedView
      * @param obj activity或fragment对象
      */
-    fun destroy(obj: Any) {
+    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+    private fun destroy(obj: Any) {
         mMethodsMap.remove(obj)
         uninstallInterceptor()
     }
@@ -161,7 +168,7 @@ object NetworkInterceptManager {
                 val methodList = mMethodsMap[obj]
                 //遍历函数集合
                 methodList?.forEach { methodBean ->
-                    Log.i(TAG, "网络连接发生变化：${currentType.name} ${currentAvailability.name}")
+//                    Log.i(TAG, "网络连接发生变化：${currentType.name} ${currentAvailability.name}")
                     //反射执行函数
                     methodBean.method.invoke(obj, NetworkResponse(currentType, currentAvailability))
                 }
