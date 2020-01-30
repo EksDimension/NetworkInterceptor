@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:name=".application.BaseApplication"
+        android:name=".application.BaseApplicationJ"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -23,7 +23,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
-        <activity android:name=".FirstActivity">
+        <activity android:name=".FirstActivityJ">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -32,6 +32,8 @@
         </activity>
         <activity android:name=".SecondActivity" />
         <activity android:name=".ThirdActivity" />
+        <activity android:name=".SecondActivityJ" />
+        <activity android:name=".ThirdActivityJ" />
     </application>
 
 </manifest>

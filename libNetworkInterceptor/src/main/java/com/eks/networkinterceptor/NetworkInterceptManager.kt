@@ -34,7 +34,9 @@ object NetworkInterceptManager : LifecycleObserver {
 
     private var cmgr: ConnectivityManager? = null
     private var mMethodsMap: HashMap<Any, List<MethodBean>> = hashMapOf()
+    @JvmField
     var currentType: NetworkType = NetworkType.WAITING
+    @JvmField
     var currentAvailability: DataAvailability = DataAvailability.WAITING
     private var mCustomeServers: Array<SocketAddressForTesting>? = null
 
