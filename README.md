@@ -48,7 +48,7 @@ buildscript {
 #### 然后针对业务module/library 添加依赖
 ##### Gradle
 ```gradle
-implementation 'com.eks.framework:network_interceptor:1.0.4'
+implementation 'com.eks.framework:network_interceptor:1.0.5'
 ```
 
 ##### Maven
@@ -56,7 +56,7 @@ implementation 'com.eks.framework:network_interceptor:1.0.4'
 <dependency>
   <groupId>com.eks.framework</groupId>
   <artifactId>network_interceptor</artifactId>
-  <version>1.0.4</version>
+  <version>1.0.5</version>
   <type>pom</type>
 </dependency>
 ```
@@ -67,6 +67,7 @@ implementation 'com.eks.framework:network_interceptor:1.0.4'
 #### 详细应用
 ##### 在Activity中
 ```java
+//Kotlin↓↓↓
 class TestActivity : AppCompatActivity() , LifecycleOwner {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,9 +88,19 @@ class TestActivity : AppCompatActivity() , LifecycleOwner {
 
 	}
 }
+
+//Java↓↓↓
+class TestActivity extends AppCompatActivity implements LifecycleOwner {
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        getLifecycle().addObserver(NetworkInterceptManager.INSTANCE.create(this));
+    }
+}
 ```
 ##### 在Fragment中
 ```java
+//Kotlin↓↓↓
 class TestFragment : Fragment() , LifecycleOwner {
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -104,6 +115,20 @@ class TestFragment : Fragment() , LifecycleOwner {
 	//跟acivity一样 不重复写了
     @NetworkChange
     fun onNetworkChanged(res: NetworkResponse) {
+    }
+}
+
+//Java↓↓↓
+public class TestFragment extends Fragment implements LifecycleOwner {
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        getLifecycle().addObserver(NetworkInterceptManager.INSTANCE.create(this));
+        return super.onCreateView(inflater, container, savedInstanceState);
+    }
+
+    @NetworkChange
+    public void onNetworkChanged(NetworkResponse res){
     }
 }
 ```
@@ -123,24 +148,32 @@ class TestFragment : Fragment() , LifecycleOwner {
 
 ##### 当然，如果你实在想手动获取当前网络状况，也不是不行，可以通过执行NetworkInterceptManager.currentType.name和NetworkInterceptManager.currentAvailability.name 就可以直接获取了，或者像下面代码那样toast一波也行
 ```java
+//Kotlin↓↓↓
 btnTest.setOnClickListener {
             Toast.makeText(
                 this@FirstActivity,
                 "当前网络状况:\n类型${NetworkInterceptManager.currentType.name}\n可用性${NetworkInterceptManager.currentAvailability.name}", Toast.LENGTH_SHORT
             ).show()
         }
+	
+//Java↓↓↓
+findViewById(R.id.btn1).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Toast.makeText(
+                        SecondActivityJ.this,
+                        "当前网络状况:\n类型" + NetworkInterceptManager.currentType + "\n可用性" +
+                                NetworkInterceptManager.currentAvailability, Toast.LENGTH_SHORT).show();
+            }
+        });
 ```
-
-
 ------------
-
-
-
 ### 既然可以测试网络数据有效性，那么我可以仅指定连接的服务器吗？
 ##### 可以！！！
 比如整个App里面，一共用到3个已知的服务器ip，分别是119.124.21.213 120.124.129.23 115.129.59.23 端口分别为80 81 82
 那么在Application里头设置自定义服务器即可
 ```java
+//Kotlin↓↓↓
 class TestApplication : Application() {
     override fun onCreate() {
         super.onCreate()
@@ -153,15 +186,32 @@ class TestApplication : Application() {
         )
     }
 }
+
+//Java↓↓↓
+public class TestApplication extends Application {
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        SocketAddressForTesting[] socketAddressForTestings = {
+                new SocketAddressForTesting("119.124.21.213", 80)
+                , new SocketAddressForTesting("120.124.129.23", 81)
+		, new SocketAddressForTesting("115.129.59.23", 82)
+        };
+        NetworkInterceptManager.INSTANCE.setCustomServers(socketAddressForTestings);
+    }
+}
 ```
 如果你不是想针对整个APP，而仅仅在指定时刻指定服务器，其余情况恢复默认服务器。
 那你就在你需要指定的地方运行上述的代码。想在恢复默认服务器，则运行下方代码即可。
 ```java
+//Kotlin↓↓↓
 NetworkInterceptManager.setCustomServers(null)
-```
 
+//Java↓↓↓
+NetworkInterceptManager.INSTANCE.setCustomServers(null);
+```
 ------------
 ## 温馨提示
-由于这还是首次发布个人的通用框架，里面还有很多细节等待完善，距离全面商业级应用还有很大段路要走，处于局部测试阶段中，有任何不足之处、技术建议，还请大家多多指点 多多批评。
+这是首次发布个人的通用框架，里面还有很多细节正在不断完善中，若有任何不足之处、技术建议，还请大家多多指点 多多批评。
 
-#### 本框架部分核心技术、思想、灵感来源于 彭锡老师-Simon[（点击访问博客）](https://www.cmonbaby.com/ "（点这里访问）")，轮循器封装由zhongruiAndroid提供[（点击访问Git主页）](https://github.com/zhongruiAndroid "（点击访问Git主页）")，特此表示感谢。也感谢所有加入测试行列 提出任何意见的小伙伴们。
+#### 本框架部分核心思想、灵感来源于 彭锡老师-Simon[（点击访问博客）](https://www.cmonbaby.com/ "（点这里访问）")，轮循技术由zhongruiAndroid提供[（点击访问Git主页）](https://github.com/zhongruiAndroid "（点击访问Git主页）")，特此表示感谢。也感谢所有加入测试行列 提出任何意见的小伙伴们。
