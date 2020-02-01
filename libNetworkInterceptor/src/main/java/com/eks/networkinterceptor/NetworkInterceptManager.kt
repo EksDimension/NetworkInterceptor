@@ -179,7 +179,7 @@ object NetworkInterceptManager : LifecycleObserver {
         true
     })
 
-    fun setCustomServers(customeServers: Array<SocketAddressForTesting>) {
+    fun setCustomServers(customeServers: Array<SocketAddressForTesting>?) {
         mCustomeServers = customeServers
         mNetworkDataAvailabilityInterceptor.setCustomServers(mCustomeServers)
     }
