@@ -86,7 +86,7 @@ class TestActivity : AppCompatActivity() , LifecycleOwner {
     @NetworkChange
     fun onNetworkChanged(res: NetworkResponse) {
 
-	}
+    }
 }
 
 //Java↓↓↓
@@ -95,6 +95,10 @@ class TestActivity extends AppCompatActivity implements LifecycleOwner {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getLifecycle().addObserver(NetworkInterceptManager.INSTANCE.create(this));
+    }
+    
+    @NetworkChange
+    public void onNetworkChanged(NetworkResponse res){
     }
 }
 ```
